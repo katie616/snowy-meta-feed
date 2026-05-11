@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import csv
 import html
+import json
 import os
 import re
 import sys
@@ -25,15 +26,25 @@ import requests
 API_BASE = os.environ.get("HOMHERO_API_BASE", "https://api.homhero.com.au").rstrip("/")
 BOOKING_BASE_URL = os.environ.get("BOOKING_BASE_URL", "https://snowymountainsaccommodation.au/accommodation/{slug}/")
 BRAND_NAME = os.environ.get("BRAND_NAME", "Snowy Mountains Accommodation")
-PLACEHOLDER_PRICE_AMOUNT = os.environ.get("PLACEHOLDER_PRICE_AMOUNT", "1.00").strip()
 META_FEED_CURRENCY = os.environ.get("META_FEED_CURRENCY", "AUD").strip().upper()
+# Default safety-net price used only when neither Homhero nor the public listing page exposes
+# a usable per-property from-price. PLACEHOLDER_PRICE_AMOUNT remains supported for backwards
+# compatibility, but META_FEED_FALLBACK_PRICE is the preferred setting name.
+META_FEED_FALLBACK_PRICE = os.environ.get(
+    "META_FEED_FALLBACK_PRICE",
+    os.environ.get("PLACEHOLDER_PRICE_AMOUNT", "308.00"),
+).strip()
+PLACEHOLDER_PRICE_AMOUNT = META_FEED_FALLBACK_PRICE
 USE_HOMHERO_STARTING_PRICE = os.environ.get("USE_HOMHERO_STARTING_PRICE", "true").strip().lower() in {"1", "true", "yes", "y", "on"}
+USE_WEBSITE_FROM_PRICE = os.environ.get("USE_WEBSITE_FROM_PRICE", "true").strip().lower() in {"1", "true", "yes", "y", "on"}
 ADD_STARTING_PRICE_TO_DESCRIPTION = os.environ.get("ADD_STARTING_PRICE_TO_DESCRIPTION", "true").strip().lower() in {"1", "true", "yes", "y", "on"}
-STARTING_PRICE_LABEL = os.environ.get("STARTING_PRICE_LABEL", "Starting from AU${amount} per night. Final price depends on dates, guests and availability.").strip()
+STARTING_PRICE_LABEL = os.environ.get("STARTING_PRICE_LABEL", "Rates from AU${amount} per night. Final price depends on dates, guests and availability.").strip()
+META_FEED_PRICE_OVERRIDES = os.environ.get("META_FEED_PRICE_OVERRIDES", "").strip()
+WEBSITE_FROM_PRICE_TIMEOUT = float(os.environ.get("WEBSITE_FROM_PRICE_TIMEOUT", "12"))
 # Meta's product-feed specification expects price as: number + space + ISO 4217 currency code,
-# for example "10.00 USD". Keep PLACEHOLDER_PRICE as an override for backwards compatibility,
-# but prefer PLACEHOLDER_PRICE_AMOUNT + META_FEED_CURRENCY so the shopfront currency can be changed
-# from GitHub Actions without editing code if Meta reports a dominant-currency mismatch.
+# for example "308.00 AUD". Keep PLACEHOLDER_PRICE as an override for backwards compatibility,
+# but prefer META_FEED_FALLBACK_PRICE + META_FEED_CURRENCY so the safety-net amount and shopfront
+# currency can be changed from GitHub Actions without editing code.
 PLACEHOLDER_PRICE = os.environ.get("PLACEHOLDER_PRICE", f"{PLACEHOLDER_PRICE_AMOUNT} {META_FEED_CURRENCY}").strip()
 DEFAULT_QUANTITY = os.environ.get("DEFAULT_QUANTITY", "999")
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS", "8"))
@@ -260,6 +271,87 @@ def parse_price_amount(value: Any) -> Decimal | None:
     return amount.quantize(Decimal("0.01"))
 
 
+def normalise_lookup_key(value: Any) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", str(value or "").strip().lower()).strip("-")
+
+
+def parse_price_overrides() -> Dict[str, Decimal]:
+    if not META_FEED_PRICE_OVERRIDES:
+        return {}
+    try:
+        raw = json.loads(META_FEED_PRICE_OVERRIDES)
+    except json.JSONDecodeError as exc:
+        print(f"Ignoring invalid META_FEED_PRICE_OVERRIDES JSON: {exc}", file=sys.stderr)
+        return {}
+    if not isinstance(raw, dict):
+        print("Ignoring META_FEED_PRICE_OVERRIDES because it is not a JSON object", file=sys.stderr)
+        return {}
+    overrides: Dict[str, Decimal] = {}
+    for key, value in raw.items():
+        amount = parse_price_amount(value)
+        if amount is not None:
+            overrides[normalise_lookup_key(key)] = amount
+    return overrides
+
+
+PRICE_OVERRIDES = parse_price_overrides()
+
+
+def listing_lookup_keys(listing: Dict[str, Any], slug: str, title: str, link: str) -> List[str]:
+    values = [
+        first_present(listing, ["id", "listing_id", "rms_id"], ""),
+        slug,
+        title,
+        link.rstrip("/").split("/")[-1] if link else "",
+    ]
+    keys: List[str] = []
+    for value in values:
+        key = normalise_lookup_key(value)
+        if key and key not in keys:
+            keys.append(key)
+    return keys
+
+
+def extract_override_price(listing: Dict[str, Any], slug: str, title: str, link: str) -> Tuple[Decimal | None, str]:
+    for key in listing_lookup_keys(listing, slug, title, link):
+        if key in PRICE_OVERRIDES:
+            return PRICE_OVERRIDES[key], f"manual_price_override:{key}"
+    return None, ""
+
+
+def extract_website_from_price(link: str) -> Tuple[Decimal | None, str]:
+    if not USE_WEBSITE_FROM_PRICE:
+        return None, "website_from_price_disabled"
+    if not link:
+        return None, "website_from_price_missing_link"
+    try:
+        response = requests.get(link, headers={"Accept": "text/html"}, timeout=(5, WEBSITE_FROM_PRICE_TIMEOUT))
+        response.raise_for_status()
+    except Exception as exc:
+        return None, f"website_from_price_fetch_failed:{type(exc).__name__}"
+
+    page_text = clean_text(response.text)
+    patterns = [
+        r"From\s*\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*/\s*night\s+based\s+on\s+a\s+7\s+night\s+stay",
+        r"From\s*\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)\s*/\s*night",
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, page_text, flags=re.IGNORECASE)
+        if match:
+            amount = parse_price_amount(match.group(1))
+            if amount is not None:
+                return amount, "website_from_price_7_night" if "7" in pattern else "website_from_price"
+    return None, "website_from_price_not_found"
+
+
+def fallback_price_amount() -> Decimal:
+    amount = parse_price_amount(META_FEED_FALLBACK_PRICE)
+    if amount is None:
+        print(f"Invalid META_FEED_FALLBACK_PRICE {META_FEED_FALLBACK_PRICE!r}; using 308.00", file=sys.stderr)
+        return Decimal("308.00")
+    return amount
+
+
 def iter_price_candidates(value: Any, path: str = "") -> Iterable[Tuple[Decimal, str]]:
     if isinstance(value, dict):
         for key, nested in value.items():
@@ -310,7 +402,15 @@ def to_product_row(listing: Dict[str, Any]) -> Tuple[Dict[str, str], str]:
     if isinstance(listing.get("categories_list"), list) and listing["categories_list"]:
         category_raw = listing["categories_list"][0]
 
+    link = build_listing_url(slug)
     starting_price_amount, pricing_note = extract_starting_price(listing)
+    if starting_price_amount is None:
+        starting_price_amount, pricing_note = extract_override_price(listing, slug, title, link)
+    if starting_price_amount is None:
+        starting_price_amount, pricing_note = extract_website_from_price(link)
+    if starting_price_amount is None:
+        starting_price_amount = fallback_price_amount()
+        pricing_note = f"default_fallback_from_price:{META_FEED_FALLBACK_PRICE}"
     description = append_starting_price_text(description, starting_price_amount)
 
     row = {field: "" for field in META_PRODUCT_FIELDS}
@@ -322,7 +422,7 @@ def to_product_row(listing: Dict[str, Any]) -> Tuple[Dict[str, str], str]:
             "availability": "in stock",
             "condition": "new",
             "price": format_meta_price(starting_price_amount),
-            "link": build_listing_url(slug),
+            "link": link,
             "image_link": extract_image_url(listing),
             "brand": BRAND_NAME,
             "google_product_category": "",
@@ -414,8 +514,13 @@ def main() -> int:
     issue_count = sum(1 for item in diagnostics if item["missing_or_invalid_fields"])
     api_price_count = sum(1 for item in diagnostics if item["pricing_note"].startswith("api_starting_price:"))
     print(f"Rows written: {len(rows)}")
+    website_price_count = sum(1 for item in diagnostics if item["pricing_note"].startswith("website_from_price"))
+    override_price_count = sum(1 for item in diagnostics if item["pricing_note"].startswith("manual_price_override:"))
+    default_fallback_count = sum(1 for item in diagnostics if item["pricing_note"].startswith("default_fallback_from_price:"))
     print(f"Rows using Homhero API starting prices: {api_price_count}")
-    print(f"Rows using placeholder fallback prices: {len(rows) - api_price_count}")
+    print(f"Rows using website 7-night from-prices: {website_price_count}")
+    print(f"Rows using manual price overrides: {override_price_count}")
+    print(f"Rows using default fallback from-price: {default_fallback_count}")
     print(f"Rows with missing/invalid required fields: {issue_count}")
     print(f"Feed written to: {OUTPUT_FILE}")
     print(f"Diagnostics written to: {DIAGNOSTICS_FILE}")

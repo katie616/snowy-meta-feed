@@ -16,7 +16,10 @@ The setup fetches your listings from Homhero, converts them into the product cat
 | Diagnostics file | `docs/snowy_mountains_meta_products_diagnostics.csv` |
 | Private secret needed | `HOMHERO_API_KEY` |
 | Optional variable for currency mismatch | `META_FEED_CURRENCY` |
-| Optional starting-price switch | `USE_HOMHERO_STARTING_PRICE` |
+| Optional default fallback from-price | `META_FEED_FALLBACK_PRICE` |
+| Optional Homhero API starting-price switch | `USE_HOMHERO_STARTING_PRICE` |
+| Optional website from-price switch | `USE_WEBSITE_FROM_PRICE` |
+| Optional manual per-property price overrides | `META_FEED_PRICE_OVERRIDES` |
 | Default run frequency | Four times per day |
 
 ## Before you start
@@ -142,13 +145,45 @@ For most accommodation catalogue use, every six hours is enough. Meta is unlikel
 
 ## Important notes
 
-The generated feed now tries to use a **Homhero API starting price** where Homhero provides a supported positive nightly/minimum/base price field. Meta's `price` column must still be a numeric value plus a three-letter currency code, for example `250.00 AUD`; the words “Starting from” are added to the description instead of being put inside the price field.
+The generated feed now uses a **pricing hierarchy** so Meta no longer sees the misleading `1.00 AUD` placeholder. First, the script tries to use a Homhero API starting price where Homhero provides a supported positive nightly, minimum, base, or from-price field. If the API does not expose a usable price, the feed can use optional manual per-property overrides from `META_FEED_PRICE_OVERRIDES`. If there is no override, the script reads the public listing page and looks for the website wording such as `From $308 /night based on a 7 night stay`. This lets the Meta feed vary by property when the public website publishes a from-price.
 
-If the Homhero API does not expose a supported starting price for a listing, that listing safely falls back to `1.00 AUD`. This avoids breaking the entire feed while making the diagnostics file show which listings used an API price and which listings used the fallback placeholder.
+If none of those sources provides a usable price, the final safety net is `META_FEED_FALLBACK_PRICE`, which defaults to `308.00` in the workflow. Meta's `price` column must still be a numeric value plus a three-letter currency code, for example `308.00 AUD`; the words “Rates from” are added to the description instead of being put inside the price field.
 
-Meta's own product template expects the `price` field to contain both the amount and the three-letter ISO currency code, for example `10.00 USD` or `1.00 AUD`. This package now builds that value from the detected starting price, or from two fallback settings: `PLACEHOLDER_PRICE_AMOUNT`, which is set to `1.00` in the workflow, and `META_FEED_CURRENCY`, which defaults to `AUD`.
+The description now uses wording like `Rates from AU$308 per night. Final price depends on dates, guests and availability.` This makes clear that the Meta catalogue price is a starting rate, not a guaranteed quote for every date range.
+
+Meta's own product template expects the `price` field to contain both the amount and the three-letter ISO currency code, for example `10.00 USD` or `308.00 AUD`. This package builds that value from the detected starting price, or from two fallback settings: `META_FEED_FALLBACK_PRICE`, which is set to `308.00` in the workflow, and `META_FEED_CURRENCY`, which defaults to `AUD`.
 
 The generated feed uses `999` as the quantity because Meta required a positive `quantity_to_sell_on_facebook` value in the error report. This value is a catalogue compliance placeholder, not a real stock count.
+
+## How to change the default fallback from-price
+
+Most listings should use either a Homhero API price, a manual override, or the public website's own `From $X /night based on a 7 night stay` price. The default fallback is only used when none of those sources provides a usable price. It is currently set to `308.00`, based on the Tanderra 10 example showing `From $308 /night based on a 7 night stay`.
+
+To change the default fallback without editing Python, open the repository in GitHub, then go to **Settings → Secrets and variables → Actions → Variables → New repository variable**. In **Name**, type exactly:
+
+```text
+META_FEED_FALLBACK_PRICE
+```
+
+In **Value**, type the amount only, without the dollar sign or currency code. For example:
+
+```text
+308.00
+```
+
+Click **Add variable**, then go to **Actions → Update Meta catalogue feed → Run workflow**. After the workflow finishes, open `docs/snowy_mountains_meta_products_diagnostics.csv` and check the `pricing_note` column.
+
+## Optional manual per-property overrides
+
+Manual overrides are not needed for normal use, because the script tries Homhero first and then the public website page. If you ever need to force a specific property to use a specific from-price, you can add a GitHub repository variable named `META_FEED_PRICE_OVERRIDES`.
+
+The value must be a small JSON object. You can use a listing ID, slug, or title as the key. For example, this would force Tanderra 10 on Park Road to use `308.00`:
+
+```json
+{"102":"308.00","tanderra-10-on-park-road":"308.00"}
+```
+
+After saving the variable, run the workflow again. If the override is used, the diagnostics file will show a `pricing_note` beginning with `manual_price_override:`.
 
 ## If Meta reports “Item currency and shopfront dominant currency mismatch”
 
@@ -175,7 +210,7 @@ Click **Add variable**, then go to **Actions → Update Meta catalogue feed → 
 | GitHub Action fails with `Missing HOMHERO_API_KEY` | The secret is missing or named incorrectly | Add a repository secret named exactly `HOMHERO_API_KEY`. |
 | The feed URL gives a 404 error | GitHub Pages is not enabled or has not finished publishing | Go to **Settings → Pages**, select branch `main` and folder `/docs`, then wait a few minutes. |
 | Meta still asks you to map fields | Meta is reviewing the CSV headers | Map `id` to `id`, `title` to `title`, `price` to `price`, `link` to `link`, `availability` to `availability`, and `condition` to `condition`. |
-| Meta reports price warnings | Some listings may still be using fallback placeholder pricing because no supported Homhero price field was found | Open `docs/snowy_mountains_meta_products_diagnostics.csv` and check the `pricing_note` column. `api_starting_price:...` means a Homhero starting price was used; `placeholder_price_no_supported_api_price` means the script could not find a supported API price for that listing. |
+| Meta reports price warnings | Meta may need to refresh its data source, or a listing may be using the default fallback because neither Homhero nor the public page exposed a usable price | Open `docs/snowy_mountains_meta_products_diagnostics.csv` and check the `pricing_note` column. `api_starting_price:...` means a Homhero API price was used; `website_from_price_7_night` means the public website's 7-night from-price was used; `manual_price_override:...` means a manual override was used; `default_fallback_from_price:...` means the final safety-net price was used. |
 | Meta reports `Item currency and shopfront dominant currency mismatch` | The feed currency does not match the Commerce Manager shopfront currency | Check the shopfront currency in Meta. If it is not `AUD`, add or update the GitHub repository variable `META_FEED_CURRENCY` to match Meta exactly, then rerun the workflow. |
 | Listings are missing images | Homhero did not return a usable image URL for that listing | Check `docs/snowy_mountains_meta_products_diagnostics.csv`. |
 

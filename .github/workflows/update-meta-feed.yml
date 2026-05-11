@@ -1,0 +1,48 @@
+name: Update Meta catalogue feed
+
+on:
+  # Runs four times per day in UTC. This is approximately 6am, midday, 6pm, and midnight
+  # in Australia/Sydney during standard time, and one hour later during daylight saving.
+  schedule:
+    - cron: "0 20,2,8,14 * * *"
+
+  # Lets you click a button in GitHub to run it immediately.
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-feed:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Python requirements
+        run: pip install -r requirements.txt
+
+      - name: Generate Meta catalogue feed
+        env:
+          HOMHERO_API_KEY: ${{ secrets.HOMHERO_API_KEY }}
+          BOOKING_BASE_URL: "https://snowymountainsaccommodation.au/accommodation/{slug}/"
+          BRAND_NAME: "Snowy Mountains Accommodation"
+          # Meta requires price as amount + ISO currency, e.g. "1.00 AUD".
+          # If Commerce Manager reports a shopfront currency mismatch, set repository variable
+          # META_FEED_CURRENCY to the shopfront's exact currency code, then rerun this workflow.
+          PLACEHOLDER_PRICE_AMOUNT: "1.00"
+          META_FEED_CURRENCY: ${{ vars.META_FEED_CURRENCY || 'AUD' }}
+          DEFAULT_QUANTITY: "999"
+        run: python generate_meta_feed.py
+
+      - name: Commit updated feed files
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Update Meta catalogue feed"
+          file_pattern: docs/*.csv

@@ -15,6 +15,7 @@ import os
 import re
 import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Tuple
 from urllib.parse import urljoin
@@ -26,6 +27,9 @@ BOOKING_BASE_URL = os.environ.get("BOOKING_BASE_URL", "https://snowymountainsacc
 BRAND_NAME = os.environ.get("BRAND_NAME", "Snowy Mountains Accommodation")
 PLACEHOLDER_PRICE_AMOUNT = os.environ.get("PLACEHOLDER_PRICE_AMOUNT", "1.00").strip()
 META_FEED_CURRENCY = os.environ.get("META_FEED_CURRENCY", "AUD").strip().upper()
+USE_HOMHERO_STARTING_PRICE = os.environ.get("USE_HOMHERO_STARTING_PRICE", "true").strip().lower() in {"1", "true", "yes", "y", "on"}
+ADD_STARTING_PRICE_TO_DESCRIPTION = os.environ.get("ADD_STARTING_PRICE_TO_DESCRIPTION", "true").strip().lower() in {"1", "true", "yes", "y", "on"}
+STARTING_PRICE_LABEL = os.environ.get("STARTING_PRICE_LABEL", "Starting from AU${amount} per night. Final price depends on dates, guests and availability.").strip()
 # Meta's product-feed specification expects price as: number + space + ISO 4217 currency code,
 # for example "10.00 USD". Keep PLACEHOLDER_PRICE as an override for backwards compatibility,
 # but prefer PLACEHOLDER_PRICE_AMOUNT + META_FEED_CURRENCY so the shopfront currency can be changed
@@ -84,6 +88,57 @@ REQUIRED_FIELDS = [
     "image_link",
     "quantity_to_sell_on_facebook",
 ]
+
+PRICE_FIELD_CANDIDATES = {
+    "starting_price",
+    "start_price",
+    "from_price",
+    "price_from",
+    "minimum_price",
+    "min_price",
+    "lowest_price",
+    "cheapest_price",
+    "base_price",
+    "public_price",
+    "display_price",
+    "default_price",
+    "minimum_nightly_price",
+    "min_nightly_price",
+    "nightly_price",
+    "nightly_rate",
+    "base_rate",
+    "base_nightly_rate",
+    "from_rate",
+    "lowest_rate",
+    "minimum_rate",
+    "min_rate",
+    "rate_from",
+    "rack_rate",
+    "standard_rate",
+    "tariff",
+}
+
+PRICE_FIELD_EXCLUSIONS = {
+    "bond",
+    "deposit",
+    "fee",
+    "fees",
+    "cleaning",
+    "linen",
+    "service",
+    "tax",
+    "taxes",
+    "commission",
+    "discount",
+    "surcharge",
+    "security",
+    "pet",
+    "extra",
+    "total",
+    "count",
+    "quantity",
+    "rating",
+}
 
 
 def clean_text(value: Any, max_len: int | None = None) -> str:
@@ -170,7 +225,83 @@ def fetch_detail(summary: Dict[str, Any], key: str) -> Tuple[Dict[str, Any], str
         return summary, f"detail fetch failed; used summary only: {type(exc).__name__}: {str(exc)[:140]}"
 
 
-def to_product_row(listing: Dict[str, Any]) -> Dict[str, str]:
+def normalise_key(key: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "_", key.strip().lower()).strip("_")
+
+
+def field_is_allowed_price_candidate(key: str) -> bool:
+    normalised = normalise_key(key)
+    if not normalised:
+        return False
+    if any(part in normalised for part in PRICE_FIELD_EXCLUSIONS):
+        return False
+    return normalised in PRICE_FIELD_CANDIDATES
+
+
+def parse_price_amount(value: Any) -> Decimal | None:
+    if isinstance(value, bool) or value in (None, "", [], {}):
+        return None
+    if isinstance(value, (int, float, Decimal)):
+        candidate = str(value)
+    else:
+        candidate = str(value)
+    match = re.search(r"([0-9]+(?:,[0-9]{3})*(?:\.[0-9]+)?|[0-9]+)", candidate.replace("AUD", ""))
+    if not match:
+        return None
+    try:
+        amount = Decimal(match.group(1).replace(",", ""))
+    except InvalidOperation:
+        return None
+    if amount <= 0:
+        return None
+    # Ignore tiny non-accommodation values that are likely counts or placeholder defaults.
+    if amount < Decimal("10"):
+        return None
+    return amount.quantize(Decimal("0.01"))
+
+
+def iter_price_candidates(value: Any, path: str = "") -> Iterable[Tuple[Decimal, str]]:
+    if isinstance(value, dict):
+        for key, nested in value.items():
+            current_path = f"{path}.{key}" if path else str(key)
+            if field_is_allowed_price_candidate(str(key)):
+                amount = parse_price_amount(nested)
+                if amount is not None:
+                    yield amount, current_path
+            if isinstance(nested, (dict, list)):
+                yield from iter_price_candidates(nested, current_path)
+    elif isinstance(value, list):
+        for index, item in enumerate(value):
+            yield from iter_price_candidates(item, f"{path}[{index}]")
+
+
+def extract_starting_price(listing: Dict[str, Any]) -> Tuple[Decimal | None, str]:
+    if not USE_HOMHERO_STARTING_PRICE:
+        return None, "placeholder_price_disabled"
+    candidates = list(iter_price_candidates(listing))
+    if not candidates:
+        return None, "placeholder_price_no_supported_api_price"
+    amount, source = min(candidates, key=lambda item: item[0])
+    return amount, f"api_starting_price:{source}"
+
+
+def format_meta_price(amount: Decimal | None) -> str:
+    if amount is None:
+        return PLACEHOLDER_PRICE
+    return f"{amount:.2f} {META_FEED_CURRENCY}"
+
+
+def append_starting_price_text(description: str, amount: Decimal | None) -> str:
+    if not ADD_STARTING_PRICE_TO_DESCRIPTION or amount is None:
+        return description
+    label = STARTING_PRICE_LABEL.replace("{amount}", f"{amount:.0f}").replace("{amount_2dp}", f"{amount:.2f}")
+    if label and label.lower() not in description.lower():
+        combined = f"{label} {description}".strip()
+        return clean_text(combined, 5000)
+    return description
+
+
+def to_product_row(listing: Dict[str, Any]) -> Tuple[Dict[str, str], str]:
     slug = clean_text(first_present(listing, ["slug", "account_listing_slug", "listing_slug", "id"]))
     title = clean_text(first_present(listing, ["name", "title", "listing_name"], "Untitled Listing"), 200)
     description = clean_text(first_present(listing, ["description", "short_description", "summary"], title), 5000)
@@ -178,6 +309,9 @@ def to_product_row(listing: Dict[str, Any]) -> Dict[str, str]:
     category_raw = first_present(listing, ["property_type", "type"], "Accommodation")
     if isinstance(listing.get("categories_list"), list) and listing["categories_list"]:
         category_raw = listing["categories_list"][0]
+
+    starting_price_amount, pricing_note = extract_starting_price(listing)
+    description = append_starting_price_text(description, starting_price_amount)
 
     row = {field: "" for field in META_PRODUCT_FIELDS}
     row.update(
@@ -187,7 +321,7 @@ def to_product_row(listing: Dict[str, Any]) -> Dict[str, str]:
             "description": description,
             "availability": "in stock",
             "condition": "new",
-            "price": PLACEHOLDER_PRICE,
+            "price": format_meta_price(starting_price_amount),
             "link": build_listing_url(slug),
             "image_link": extract_image_url(listing),
             "brand": BRAND_NAME,
@@ -199,7 +333,7 @@ def to_product_row(listing: Dict[str, Any]) -> Dict[str, str]:
             "style[0]": clean_text(category_raw, 100),
         }
     )
-    return row
+    return row, pricing_note
 
 
 def validate(row: Dict[str, str]) -> List[str]:
@@ -237,7 +371,7 @@ def main() -> int:
     rows: List[Dict[str, str]] = []
     diagnostics: List[Dict[str, str]] = []
     for listing, fetch_note in details:
-        row = to_product_row(listing)
+        row, pricing_note = to_product_row(listing)
         rows.append(row)
         diagnostics.append(
             {
@@ -247,6 +381,7 @@ def main() -> int:
                 "missing_or_invalid_fields": "; ".join(validate(row)),
                 "price": row["price"],
                 "currency_code": row["price"].split()[-1] if row["price"].split() else "",
+                "pricing_note": pricing_note,
                 "quantity_to_sell_on_facebook": row["quantity_to_sell_on_facebook"],
                 "fetch_note": fetch_note,
             }
@@ -260,16 +395,27 @@ def main() -> int:
         writer.writeheader()
         writer.writerows(rows)
 
+    diagnostic_fields = [
+        "id",
+        "title",
+        "link",
+        "missing_or_invalid_fields",
+        "price",
+        "currency_code",
+        "pricing_note",
+        "quantity_to_sell_on_facebook",
+        "fetch_note",
+    ]
     with DIAGNOSTICS_FILE.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.DictWriter(
-            f,
-            fieldnames=["id", "title", "link", "missing_or_invalid_fields", "price", "currency_code", "quantity_to_sell_on_facebook", "fetch_note"],
-        )
+        writer = csv.DictWriter(f, fieldnames=diagnostic_fields)
         writer.writeheader()
         writer.writerows(diagnostics)
 
     issue_count = sum(1 for item in diagnostics if item["missing_or_invalid_fields"])
+    api_price_count = sum(1 for item in diagnostics if item["pricing_note"].startswith("api_starting_price:"))
     print(f"Rows written: {len(rows)}")
+    print(f"Rows using Homhero API starting prices: {api_price_count}")
+    print(f"Rows using placeholder fallback prices: {len(rows) - api_price_count}")
     print(f"Rows with missing/invalid required fields: {issue_count}")
     print(f"Feed written to: {OUTPUT_FILE}")
     print(f"Diagnostics written to: {DIAGNOSTICS_FILE}")

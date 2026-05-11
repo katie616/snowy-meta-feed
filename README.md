@@ -15,6 +15,7 @@ The setup fetches your listings from Homhero, converts them into the product cat
 | Published feed file | `docs/snowy_mountains_meta_products.csv` |
 | Diagnostics file | `docs/snowy_mountains_meta_products_diagnostics.csv` |
 | Private secret needed | `HOMHERO_API_KEY` |
+| Optional variable for currency mismatch | `META_FEED_CURRENCY` |
 | Default run frequency | Four times per day |
 
 ## Before you start
@@ -142,7 +143,27 @@ For most accommodation catalogue use, every six hours is enough. Meta is unlikel
 
 The generated feed uses `1.00 AUD` as a placeholder price because the available Homhero listing metadata did not expose reliable nightly pricing. This was done because Meta requires a positive price for product catalogue uploads. If you later have access to real nightly-from pricing, the script can be updated to use it.
 
+Meta's own product template expects the `price` field to contain both the amount and the three-letter ISO currency code, for example `10.00 USD` or `1.00 AUD`. This package now builds that value from two settings: `PLACEHOLDER_PRICE_AMOUNT`, which is set to `1.00` in the workflow, and `META_FEED_CURRENCY`, which defaults to `AUD`.
+
 The generated feed uses `999` as the quantity because Meta required a positive `quantity_to_sell_on_facebook` value in the error report. This value is a catalogue compliance placeholder, not a real stock count.
+
+## If Meta reports “Item currency and shopfront dominant currency mismatch”
+
+This error usually means that the currency in the feed is valid, but it does not match the currency Meta has assigned to the shopfront or sales channel. For this Snowy Mountains Accommodation feed, the CSV is currently using `AUD`, which is the expected Australian currency. If Commerce Manager says the shopfront dominant currency is something else, change the feed currency in GitHub rather than editing the CSV manually.
+
+To set the currency in GitHub, open the repository, then go to **Settings → Secrets and variables → Actions → Variables → New repository variable**. In **Name**, type exactly:
+
+```text
+META_FEED_CURRENCY
+```
+
+In **Value**, type the three-letter currency code shown by Meta for the shopfront, for example:
+
+```text
+AUD
+```
+
+Click **Add variable**, then go to **Actions → Update Meta catalogue feed → Run workflow**. After the workflow finishes, open `docs/snowy_mountains_meta_products.csv` and confirm that the `price` values use the same currency code as the Meta shopfront.
 
 ## Troubleshooting
 
@@ -152,6 +173,7 @@ The generated feed uses `999` as the quantity because Meta required a positive `
 | The feed URL gives a 404 error | GitHub Pages is not enabled or has not finished publishing | Go to **Settings → Pages**, select branch `main` and folder `/docs`, then wait a few minutes. |
 | Meta still asks you to map fields | Meta is reviewing the CSV headers | Map `id` to `id`, `title` to `title`, `price` to `price`, `link` to `link`, `availability` to `availability`, and `condition` to `condition`. |
 | Meta reports price warnings | Meta does not like placeholder pricing | Replace the placeholder with real pricing if available from Homhero or your booking engine. |
+| Meta reports `Item currency and shopfront dominant currency mismatch` | The feed currency does not match the Commerce Manager shopfront currency | Check the shopfront currency in Meta. If it is not `AUD`, add or update the GitHub repository variable `META_FEED_CURRENCY` to match Meta exactly, then rerun the workflow. |
 | Listings are missing images | Homhero did not return a usable image URL for that listing | Check `docs/snowy_mountains_meta_products_diagnostics.csv`. |
 
 ## Files Meta should use

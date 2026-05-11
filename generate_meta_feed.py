@@ -24,7 +24,13 @@ import requests
 API_BASE = os.environ.get("HOMHERO_API_BASE", "https://api.homhero.com.au").rstrip("/")
 BOOKING_BASE_URL = os.environ.get("BOOKING_BASE_URL", "https://snowymountainsaccommodation.au/accommodation/{slug}/")
 BRAND_NAME = os.environ.get("BRAND_NAME", "Snowy Mountains Accommodation")
-PLACEHOLDER_PRICE = os.environ.get("PLACEHOLDER_PRICE", "1.00 AUD")
+PLACEHOLDER_PRICE_AMOUNT = os.environ.get("PLACEHOLDER_PRICE_AMOUNT", "1.00").strip()
+META_FEED_CURRENCY = os.environ.get("META_FEED_CURRENCY", "AUD").strip().upper()
+# Meta's product-feed specification expects price as: number + space + ISO 4217 currency code,
+# for example "10.00 USD". Keep PLACEHOLDER_PRICE as an override for backwards compatibility,
+# but prefer PLACEHOLDER_PRICE_AMOUNT + META_FEED_CURRENCY so the shopfront currency can be changed
+# from GitHub Actions without editing code if Meta reports a dominant-currency mismatch.
+PLACEHOLDER_PRICE = os.environ.get("PLACEHOLDER_PRICE", f"{PLACEHOLDER_PRICE_AMOUNT} {META_FEED_CURRENCY}").strip()
 DEFAULT_QUANTITY = os.environ.get("DEFAULT_QUANTITY", "999")
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS", "8"))
 
@@ -198,8 +204,10 @@ def to_product_row(listing: Dict[str, Any]) -> Dict[str, str]:
 
 def validate(row: Dict[str, str]) -> List[str]:
     missing = [field for field in REQUIRED_FIELDS if not row.get(field)]
-    price = row.get("price", "")
-    if price in {"", "0", "0.00", "0.00 AUD"}:
+    price = row.get("price", "").strip()
+    if not re.match(r"^[0-9]+(?:\.[0-9]{2})\s+[A-Z]{3}$", price):
+        missing.append("valid_price_with_iso_currency")
+    if re.match(r"^0+(?:\.00)?\s+[A-Z]{3}$", price):
         missing.append("positive_price")
     quantity = row.get("quantity_to_sell_on_facebook", "")
     if not quantity.isdigit() or int(quantity) < 1:
@@ -238,6 +246,7 @@ def main() -> int:
                 "link": row["link"],
                 "missing_or_invalid_fields": "; ".join(validate(row)),
                 "price": row["price"],
+                "currency_code": row["price"].split()[-1] if row["price"].split() else "",
                 "quantity_to_sell_on_facebook": row["quantity_to_sell_on_facebook"],
                 "fetch_note": fetch_note,
             }
@@ -254,7 +263,7 @@ def main() -> int:
     with DIAGNOSTICS_FILE.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=["id", "title", "link", "missing_or_invalid_fields", "price", "quantity_to_sell_on_facebook", "fetch_note"],
+            fieldnames=["id", "title", "link", "missing_or_invalid_fields", "price", "currency_code", "quantity_to_sell_on_facebook", "fetch_note"],
         )
         writer.writeheader()
         writer.writerows(diagnostics)

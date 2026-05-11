@@ -38,6 +38,11 @@ jobs:
           # META_FEED_CURRENCY to the shopfront's exact currency code, then rerun this workflow.
           PLACEHOLDER_PRICE_AMOUNT: "1.00"
           META_FEED_CURRENCY: ${{ vars.META_FEED_CURRENCY || 'AUD' }}
+          # Uses Homhero API price fields when available. If no supported price field is found,
+          # the feed safely falls back to PLACEHOLDER_PRICE_AMOUNT.
+          USE_HOMHERO_STARTING_PRICE: ${{ vars.USE_HOMHERO_STARTING_PRICE || 'true' }}
+          ADD_STARTING_PRICE_TO_DESCRIPTION: ${{ vars.ADD_STARTING_PRICE_TO_DESCRIPTION || 'true' }}
+          STARTING_PRICE_LABEL: ${{ vars.STARTING_PRICE_LABEL || 'Starting from AU${amount} per night. Final price depends on dates, guests and availability.' }}
           DEFAULT_QUANTITY: "999"
         run: python generate_meta_feed.py
 

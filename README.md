@@ -16,6 +16,7 @@ The setup fetches your listings from Homhero, converts them into the product cat
 | Diagnostics file | `docs/snowy_mountains_meta_products_diagnostics.csv` |
 | Private secret needed | `HOMHERO_API_KEY` |
 | Optional variable for currency mismatch | `META_FEED_CURRENCY` |
+| Optional starting-price switch | `USE_HOMHERO_STARTING_PRICE` |
 | Default run frequency | Four times per day |
 
 ## Before you start
@@ -141,9 +142,11 @@ For most accommodation catalogue use, every six hours is enough. Meta is unlikel
 
 ## Important notes
 
-The generated feed uses `1.00 AUD` as a placeholder price because the available Homhero listing metadata did not expose reliable nightly pricing. This was done because Meta requires a positive price for product catalogue uploads. If you later have access to real nightly-from pricing, the script can be updated to use it.
+The generated feed now tries to use a **Homhero API starting price** where Homhero provides a supported positive nightly/minimum/base price field. Meta's `price` column must still be a numeric value plus a three-letter currency code, for example `250.00 AUD`; the words “Starting from” are added to the description instead of being put inside the price field.
 
-Meta's own product template expects the `price` field to contain both the amount and the three-letter ISO currency code, for example `10.00 USD` or `1.00 AUD`. This package now builds that value from two settings: `PLACEHOLDER_PRICE_AMOUNT`, which is set to `1.00` in the workflow, and `META_FEED_CURRENCY`, which defaults to `AUD`.
+If the Homhero API does not expose a supported starting price for a listing, that listing safely falls back to `1.00 AUD`. This avoids breaking the entire feed while making the diagnostics file show which listings used an API price and which listings used the fallback placeholder.
+
+Meta's own product template expects the `price` field to contain both the amount and the three-letter ISO currency code, for example `10.00 USD` or `1.00 AUD`. This package now builds that value from the detected starting price, or from two fallback settings: `PLACEHOLDER_PRICE_AMOUNT`, which is set to `1.00` in the workflow, and `META_FEED_CURRENCY`, which defaults to `AUD`.
 
 The generated feed uses `999` as the quantity because Meta required a positive `quantity_to_sell_on_facebook` value in the error report. This value is a catalogue compliance placeholder, not a real stock count.
 
@@ -172,7 +175,7 @@ Click **Add variable**, then go to **Actions → Update Meta catalogue feed → 
 | GitHub Action fails with `Missing HOMHERO_API_KEY` | The secret is missing or named incorrectly | Add a repository secret named exactly `HOMHERO_API_KEY`. |
 | The feed URL gives a 404 error | GitHub Pages is not enabled or has not finished publishing | Go to **Settings → Pages**, select branch `main` and folder `/docs`, then wait a few minutes. |
 | Meta still asks you to map fields | Meta is reviewing the CSV headers | Map `id` to `id`, `title` to `title`, `price` to `price`, `link` to `link`, `availability` to `availability`, and `condition` to `condition`. |
-| Meta reports price warnings | Meta does not like placeholder pricing | Replace the placeholder with real pricing if available from Homhero or your booking engine. |
+| Meta reports price warnings | Some listings may still be using fallback placeholder pricing because no supported Homhero price field was found | Open `docs/snowy_mountains_meta_products_diagnostics.csv` and check the `pricing_note` column. `api_starting_price:...` means a Homhero starting price was used; `placeholder_price_no_supported_api_price` means the script could not find a supported API price for that listing. |
 | Meta reports `Item currency and shopfront dominant currency mismatch` | The feed currency does not match the Commerce Manager shopfront currency | Check the shopfront currency in Meta. If it is not `AUD`, add or update the GitHub repository variable `META_FEED_CURRENCY` to match Meta exactly, then rerun the workflow. |
 | Listings are missing images | Homhero did not return a usable image URL for that listing | Check `docs/snowy_mountains_meta_products_diagnostics.csv`. |
 

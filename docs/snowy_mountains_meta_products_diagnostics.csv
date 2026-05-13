@@ -48,7 +48,7 @@ id,title,link,missing_or_invalid_fields,price,currency_code,pricing_note,quantit
 7,Les Perrieres Lodge at Crackenback,https://snowymountainsaccommodation.au/accommodation/les-perrieres-lodge/,,610.00 AUD,AUD,website_from_price_7_night,999,
 8,Les Perrieres Studio at Crackenback,https://snowymountainsaccommodation.au/accommodation/les-perrieres-studio/,,282.00 AUD,AUD,website_from_price_7_night,999,
 72,Matilda,https://snowymountainsaccommodation.au/accommodation/matilda-spacious-centrally-located-with-great-lake-views/,,403.00 AUD,AUD,website_from_price_7_night,999,
-147,Mogul Rock,https://snowymountainsaccommodation.au/accommodation/mogul-rock/,,449.00 AUD,AUD,website_from_price_7_night,999,
+147,Mogul Rock,https://snowymountainsaccommodation.au/accommodation/mogul-rock/,,308.00 AUD,AUD,default_fallback_from_price:308.00,999,
 78,Northview 2,https://snowymountainsaccommodation.au/accommodation/northview-2-easy-walk-to-jindabyne-restaurants-and-shops/,,338.00 AUD,AUD,website_from_price_7_night,999,
 144,Parkwood 5,https://snowymountainsaccommodation.au/accommodation/parkwood-5/,,308.00 AUD,AUD,website_from_price_7_night,999,
 79,Parkwood 6,https://snowymountainsaccommodation.au/accommodation/parkwood-6-2-bedroom-2-bathroom/,,339.00 AUD,AUD,website_from_price_7_night,999,

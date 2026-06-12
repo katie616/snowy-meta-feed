@@ -68,7 +68,7 @@ id,title,link,missing_or_invalid_fields,price,currency_code,pricing_note,quantit
 111,Stillwater Chalet B at Crackenback,https://snowymountainsaccommodation.au/accommodation/stillwater-chalet-b-crackenback/,,395.00 AUD,AUD,website_from_price_7_night,999,
 17,Summit 9,https://snowymountainsaccommodation.au/accommodation/summit-9-modern-and-stylish-newly-renovated-apartment/,,399.00 AUD,AUD,website_from_price_7_night,999,
 103,T-Bar on Twynam,https://snowymountainsaccommodation.au/accommodation/tbar-on-twynam/,,312.00 AUD,AUD,website_from_price_7_night,999,
-102,Tanderra 10 on Park Road,https://snowymountainsaccommodation.au/accommodation/tanderra-10-on-park-road/,,308.00 AUD,AUD,website_from_price_7_night,999,
+102,Tanderra 10 on Park Road,https://snowymountainsaccommodation.au/accommodation/tanderra-10-on-park-road/,,308.00 AUD,AUD,default_fallback_from_price:308.00,999,
 37,The Edge Apartment 5,https://snowymountainsaccommodation.au/accommodation/the-edge-apartment-5-jindabyne/,,346.00 AUD,AUD,website_from_price_7_night,999,
 146,The Essentials,https://snowymountainsaccommodation.au/accommodation/the-essentials/,,275.00 AUD,AUD,website_from_price_7_night,999,
 4,The Mountain House,https://snowymountainsaccommodation.au/accommodation/the-mountain-house-luxury-and-newly-built/,,452.00 AUD,AUD,website_from_price_7_night,999,

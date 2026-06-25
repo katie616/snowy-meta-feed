@@ -18,7 +18,7 @@ id,title,link,missing_or_invalid_fields,price,currency_code,pricing_note,quantit
 35,Dromaius 5,https://snowymountainsaccommodation.au/accommodation/dromaius-5-great-views-of-the-snowy-mountains/,,429.00 AUD,AUD,website_from_price_7_night,999,
 46,Ecocrackenback Chalet 12,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-12-sustainable-chalet-close-to-the-slopes/,,367.00 AUD,AUD,website_from_price_7_night,999,
 47,Ecocrackenback Chalet 13,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-13-sustainable-chalet-close-to-the-slopes/,,367.00 AUD,AUD,website_from_price_7_night,999,
-48,Ecocrackenback Chalet 14,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-14-sustainable-chalet-close-to-the-slopes/,,367.00 AUD,AUD,website_from_price_7_night,999,
+48,Ecocrackenback Chalet 14,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-14-sustainable-chalet-close-to-the-slopes/,,308.00 AUD,AUD,default_fallback_from_price:308.00,999,
 49,Ecocrackenback Chalet 15,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-15-sustainable-chalet-close-to-the-slopes/,,367.00 AUD,AUD,website_from_price_7_night,999,
 50,Ecocrackenback Chalet 16,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-16-sustainable-chalet-close-to-the-slopes/,,367.00 AUD,AUD,website_from_price_7_night,999,
 52,Ecocrackenback Chalet 2,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-2-sustainable-chalet-close-to-the-slopes/,,367.00 AUD,AUD,website_from_price_7_night,999,

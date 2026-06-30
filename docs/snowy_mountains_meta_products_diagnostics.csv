@@ -1,5 +1,5 @@
 id,title,link,missing_or_invalid_fields,price,currency_code,pricing_note,quantity_to_sell_on_facebook,fetch_note
-154,15B Bolton Street,https://snowymountainsaccommodation.au/accommodation/15b-bolton-street/,,308.00 AUD,AUD,default_fallback_from_price:308.00,999,
+154,15B Bolton Street,https://snowymountainsaccommodation.au/accommodation/15b-bolton-street/,,351.00 AUD,AUD,website_from_price_7_night,999,
 138,1B Alpine View Retreat,https://snowymountainsaccommodation.au/accommodation/1b-alpine-view-retreat/,,500.00 AUD,AUD,website_from_price_7_night,999,
 152,2/24 Bogong,https://snowymountainsaccommodation.au/accommodation/2-24-bogong/,,366.00 AUD,AUD,website_from_price_7_night,999,
 126,3A Kunama,https://snowymountainsaccommodation.au/accommodation/3a-kunama/,,470.00 AUD,AUD,website_from_price_7_night,999,

@@ -32,7 +32,7 @@ id,title,link,missing_or_invalid_fields,price,currency_code,pricing_note,quantit
 55,Ecocrackenback Luxe Chalet 5,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-5-sustainable-chalet-close-to-the-slopes/,,367.00 AUD,AUD,website_from_price_7_night,999,
 121,Ecocrackenback Luxe Chalet 8 - Accessible Accommodation,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-8/,,367.00 AUD,AUD,website_from_price_7_night,999,
 40,Eliza Lee 3,https://snowymountainsaccommodation.au/accommodation/eliza-lee-3-air-conditioned-comfort/,,369.00 AUD,AUD,website_from_price_7_night,999,
-151,Frost Garden Retreat,https://snowymountainsaccommodation.au/accommodation/kirwan-gardens-7/,,465.00 AUD,AUD,website_from_price_7_night,999,
+151,Frost Garden Retreat,https://snowymountainsaccommodation.au/accommodation/kirwan-gardens-7/,,308.00 AUD,AUD,default_fallback_from_price:308.00,999,
 153,Gables 8,https://snowymountainsaccommodation.au/accommodation/alpine-gables-8/,,305.00 AUD,AUD,website_from_price_7_night,999,
 64,Grey Kangaroo,https://snowymountainsaccommodation.au/accommodation/grey-kangaroo-on-lake-jindabyne-foreshore/,,360.00 AUD,AUD,website_from_price_7_night,999,
 60,Horizons 216,https://snowymountainsaccommodation.au/accommodation/horizons-216-lake-jindabyne-waterfront/,,240.00 AUD,AUD,website_from_price_7_night,999,

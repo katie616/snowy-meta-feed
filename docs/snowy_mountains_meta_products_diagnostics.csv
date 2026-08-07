@@ -25,7 +25,7 @@ id,title,link,missing_or_invalid_fields,price,currency_code,pricing_note,quantit
 52,Ecocrackenback Chalet 2,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-2-sustainable-chalet-close-to-the-slopes/,,367.00 AUD,AUD,website_from_price_7_night,999,
 54,Ecocrackenback Chalet 4,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-4-sustainable-chalet-close-to-the-slopes/,,367.00 AUD,AUD,website_from_price_7_night,999,
 56,Ecocrackenback Chalet 7,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-7-sustainable-chalet-close-to-the-slopes/,,367.00 AUD,AUD,website_from_price_7_night,999,
-57,Ecocrackenback Chalet 9,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-9-sustainable-chalet-close-to-the-slopes/,,367.00 AUD,AUD,website_from_price_7_night,999,
+57,Ecocrackenback Chalet 9,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-9-sustainable-chalet-close-to-the-slopes/,,308.00 AUD,AUD,default_fallback_from_price:308.00,999,
 141,Ecocrackenback Luxe Chalet 18,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-18/,,367.00 AUD,AUD,website_from_price_7_night,999,
 51,Ecocrackenback Luxe Chalet 19,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-19-sustainable-chalet-close-to-the-slopes/,,367.00 AUD,AUD,website_from_price_7_night,999,
 53,Ecocrackenback Luxe Chalet 3,https://snowymountainsaccommodation.au/accommodation/ecocrackenback-3-sustainable-chalet-close-to-the-slopes/,,367.00 AUD,AUD,website_from_price_7_night,999,

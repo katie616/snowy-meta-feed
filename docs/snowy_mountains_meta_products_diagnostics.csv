@@ -61,7 +61,7 @@ id,title,link,missing_or_invalid_fields,price,currency_code,pricing_note,quantit
 132,Quigtoo Cottage,https://snowymountainsaccommodation.au/accommodation/quigtoo-cottage/,,479.00 AUD,AUD,website_from_price_7_night,999,
 88,Seeblick 2,https://snowymountainsaccommodation.au/accommodation/seeblick-2-on-lake-jindabyne/,,242.00 AUD,AUD,website_from_price_7_night,999,
 89,Seeblick 3,https://snowymountainsaccommodation.au/accommodation/seeblick-3-on-lake-jindabyne/,,226.00 AUD,AUD,website_from_price_7_night,999,
-14,Silvertrees 5,https://snowymountainsaccommodation.au/accommodation/silvertrees-5-convenience-at-your-doorstep/,,308.00 AUD,AUD,default_fallback_from_price:308.00,999,
+14,Silvertrees 5,https://snowymountainsaccommodation.au/accommodation/silvertrees-5-convenience-at-your-doorstep/,,410.00 AUD,AUD,website_from_price_7_night,999,
 95,Snowbird 1,https://snowymountainsaccommodation.au/accommodation/snowbird-1-jindabyne-townhouse/,,330.00 AUD,AUD,website_from_price_7_night,999,
 90,Snowgums on the Lake,https://snowymountainsaccommodation.au/accommodation/snowgums-on-the-lake/,,411.00 AUD,AUD,website_from_price_7_night,999,
 15,Snowy Studio,https://snowymountainsaccommodation.au/accommodation/snowy-studio-jindabyne/,,210.00 AUD,AUD,website_from_price_7_night,999,
